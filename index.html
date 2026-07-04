@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#050912">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="River Raid">
+<title>River Raid Clone</title>
+
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root{
+    --bg-deep:#050912;
+    --panel:#0c1424;
+    --panel-edge:#1c2b45;
+    --neon-cyan:#39f2d8;
+    --neon-amber:#ffb545;
+    --neon-red:#ff3b5c;
+    --ink:#eaf6ff;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left: env(safe-area-inset-left, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
+  }
+
+  *{ box-sizing:border-box; margin:0; padding:0; user-select:none; -webkit-user-select:none;
+     -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
+
+  html,body{
+    height:100%;
+    overscroll-behavior:none;
+    background:var(--bg-deep);
+  }
+
+  body{
+    color:var(--ink);
+    font-family:'Courier New', Courier, monospace;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    height:100dvh;
+    overflow:hidden;
+    background:
+      radial-gradient(1200px 600px at 50% -10%, #10203a 0%, transparent 60%),
+      var(--bg-deep);
+    padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
+  }
+
+  #game-container{
+    position:relative;
+    width:100%;
+    max-width:420px;
+    height:100%;
+    max-height:820px;
+    background:var(--panel);
+    display:flex;
+    flex-direction:column;
+    border:1px solid var(--panel-edge);
+    border-radius:18px;
+    overflow:hidden;
+    box-shadow:
+      0 0 0 1px rgba(57,242,216,0.08),
+      0 20px 60px rgba(0,0,0,0.6),
+      inset 0 0 40px rgba(0,0,0,0.4);
+  }
+
+  #hud-strip{
+    height:6px;
+    width:100%;
+    background:linear-gradient(90deg, var(--neon-cyan), var(--neon-amber), var(--neon-red));
+    flex-shrink:0;
+  }
+
+  canvas{
+    width:100%;
+    flex-grow:1;
+    min-height:0;
+    background:#0055ff;
+    display:block;
+  }
+
+  /* ---- CONTROLES ---- */
+  #controls{
+    display:none;
+    grid-template-columns: 1fr auto;
+    align-items:center;
+    gap:16px;
+    padding:14px 18px calc(14px + var(--safe-bottom));
+    background:
+      linear-gradient(180deg, #0a1120 0%, #060a14 100%);
+    border-top:1px solid var(--panel-edge);
+    flex-shrink:0;
+  }
+
+  /* D-pad em formato de cruz: cima no topo-centro, baixo embaixo-centro,
+     esquerda e direita nas laterais da linha do meio */
+  .dpad{
+    display:grid;
+    grid-template-columns: 58px 58px 58px;
+    grid-template-rows: 58px 58px 58px;
+    gap:6px;
+    justify-content:start;
+  }
+  .dpad .btn{ grid-column:2; grid-row:1; } /* placeholder, overridden below */
+  #btn-up{    grid-column:2; grid-row:1; }
+  #btn-left{  grid-column:1; grid-row:2; }
+  #btn-center-spacer{ grid-column:2; grid-row:2; visibility:hidden; }
+  #btn-right{ grid-column:3; grid-row:2; }
+  #btn-down{  grid-column:2; grid-row:3; }
+
+  .btn{
+    background:linear-gradient(180deg, #223251, #131d31);
+    color:var(--neon-cyan);
+    border:1px solid #2c4269;
+    border-radius:12px;
+    font-weight:bold;
+    font-size:20px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    box-shadow: 0 3px 0 #0a1220, 0 6px 10px rgba(0,0,0,0.35);
+    transition: transform 0.05s ease;
+  }
+  .btn:active{
+    background:linear-gradient(180deg, #2c4269, #1a2740);
+    transform:translateY(2px);
+    box-shadow: 0 1px 0 #0a1220, 0 3px 6px rgba(0,0,0,0.35);
+  }
+
+  .fire-container{
+    display:flex;
+    justify-content:center;
+    align-items:center;
+  }
+  #btn-fire{
+    background:radial-gradient(circle at 35% 30%, #ff6b7f, var(--neon-red) 60%, #a3021c 100%);
+    color:#fff;
+    width:92px;
+    height:92px;
+    border-radius:50%;
+    font-size:16px;
+    letter-spacing:1px;
+    box-shadow: 0 5px 0 #7a0016, 0 10px 18px rgba(255,59,92,0.35);
+    border:1px solid rgba(255,255,255,0.15);
+  }
+  #btn-fire:active{
+    transform:translateY(3px);
+    box-shadow: 0 2px 0 #7a0016, 0 4px 10px rgba(255,59,92,0.35);
+  }
+
+  @media (pointer: coarse){
+    #controls{ display:grid; }
+  }
+
+  #btn-install{
+    display:none;
+    position:absolute;
+    top: calc(12px + var(--safe-top));
+    right: calc(12px + var(--safe-right));
+    z-index:10;
+    background:linear-gradient(180deg, #223251, #131d31);
+    color:var(--neon-cyan);
+    border:1px solid #2c4269;
+    border-radius:20px;
+    padding:8px 14px;
+    font-family:'Courier New', Courier, monospace;
+    font-size:13px;
+    font-weight:bold;
+    box-shadow:0 3px 0 #0a1220, 0 6px 10px rgba(0,0,0,0.35);
+  }
+  #btn-install:active{
+    transform:translateY(2px);
+    box-shadow:0 1px 0 #0a1220, 0 3px 6px rgba(0,0,0,0.35);
+  }
+</style>
+</head>
+<body>
+
+<div id="game-container">
+  <div id="hud-strip"></div>
+  <canvas id="gameCanvas" width="400" height="550"></canvas>
+
+  <div id="controls">
+    <div class="dpad">
+      <button class="btn" id="btn-up">▲</button>
+      <button class="btn" id="btn-left">◀</button>
+      <div id="btn-center-spacer"></div>
+      <button class="btn" id="btn-right">▶</button>
+      <button class="btn" id="btn-down">▼</button>
+    </div>
+    <div class="fire-container">
+      <button class="btn" id="btn-fire">TIRO</button>
+    </div>
+  </div>
+
+  <button id="btn-install">📲 Instalar app</button>
+</div>
+
+<script>
+// ---- Instalação do PWA ----
+let deferredPrompt = null;
+const installBtn = document.getElementById('btn-install');
+
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    installBtn.style.display = 'block';
+});
+
+installBtn.addEventListener('click', async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    installBtn.style.display = 'none';
+});
+
+window.addEventListener('appinstalled', () => {
+    installBtn.style.display = 'none';
+});
+
+// ---- Service worker (jogo funciona offline após 1º acesso) ----
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('service-worker.js').catch(() => {});
+    });
+}
+
+// Evita "puxar para atualizar" e bounce de scroll no Android/iOS
+document.addEventListener('touchmove', (e) => e.preventDefault(), { passive:false });
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+// ==================== ÁUDIO (Web Audio API, sem arquivos externos) ====================
+let audioCtx = null;
+let masterGain = null;
+let engineOsc = null, engineGain = null;
+let lowFuelInterval = null;
+let refuelOsc = null, refuelGain = null, isRefueling = false;
+
+function initAudio() {
+    if (audioCtx) {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        return;
+    }
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    masterGain = audioCtx.createGain();
+    masterGain.gain.value = 0.5;
+    masterGain.connect(audioCtx.destination);
+    startEngineSound();
+}
+
+function startEngineSound() {
+    if (!audioCtx || engineOsc) return;
+    engineOsc = audioCtx.createOscillator();
+    engineGain = audioCtx.createGain();
+    engineOsc.type = 'sawtooth';
+    engineOsc.frequency.value = 90;
+    engineGain.gain.value = 0.05;
+    engineOsc.connect(engineGain);
+    engineGain.connect(masterGain);
+    engineOsc.start();
+}
+
+function updateEngineSound() {
+    if (!audioCtx || !engineOsc) return;
+    const freq = 70 + scrollSpeed * 18;
+    engineOsc.frequency.setTargetAtTime(freq, audioCtx.currentTime, 0.05);
+}
+
+function stopEngineSound() {
+    if (!engineOsc) return;
+    try { engineOsc.stop(); } catch (e) {}
+    engineOsc.disconnect();
+    engineGain.disconnect();
+    engineOsc = null;
+    engineGain = null;
+}
+
+function playShoot() {
+    if (!audioCtx) return;
+    const now = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(900, now);
+    osc.frequency.exponentialRampToValueAtTime(150, now + 0.12);
+    gain.gain.setValueAtTime(0.25, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+    osc.connect(gain);
+    gain.connect(masterGain);
+    osc.start(now);
+    osc.stop(now + 0.13);
+}
+
+function playCrash() {
+    if (!audioCtx) return;
+    const now = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(160, now);
+    osc.frequency.exponentialRampToValueAtTime(40, now + 0.3);
+    gain.gain.setValueAtTime(0.3, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+    osc.connect(gain);
+    gain.connect(masterGain);
+    osc.start(now);
+    osc.stop(now + 0.31);
+}
+
+function playGameOver() {
+    if (!audioCtx) return;
+    stopEngineSound();
+    stopLowFuelWarning();
+    stopRefuelSound();
+    const now = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(320, now);
+    osc.frequency.exponentialRampToValueAtTime(45, now + 1.2);
+    gain.gain.setValueAtTime(0.3, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
+    osc.connect(gain);
+    gain.connect(masterGain);
+    osc.start(now);
+    osc.stop(now + 1.25);
+}
+
+function startLowFuelWarning() {
+    if (lowFuelInterval || !audioCtx) return;
+    lowFuelInterval = setInterval(() => {
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'square';
+        osc.frequency.value = 1000;
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+        osc.connect(gain);
+        gain.connect(masterGain);
+        osc.start(now);
+        osc.stop(now + 0.16);
+    }, 500);
+}
+
+function stopLowFuelWarning() {
+    if (!lowFuelInterval) return;
+    clearInterval(lowFuelInterval);
+    lowFuelInterval = null;
+}
+
+function startRefuelSound() {
+    if (isRefueling || !audioCtx) return;
+    isRefueling = true;
+    refuelOsc = audioCtx.createOscillator();
+    refuelGain = audioCtx.createGain();
+    refuelOsc.type = 'sine';
+    refuelOsc.frequency.value = 440;
+    refuelGain.gain.value = 0.15;
+    refuelOsc.connect(refuelGain);
+    refuelGain.connect(masterGain);
+    refuelOsc.start();
+}
+
+function stopRefuelSound() {
+    isRefueling = false;
+    if (!refuelOsc) return;
+    try { refuelOsc.stop(); } catch (e) {}
+    refuelOsc.disconnect();
+    refuelGain.disconnect();
+    refuelOsc = null;
+    refuelGain = null;
+}
+
+// Políticas de autoplay exigem um gesto do usuário para iniciar o áudio
+window.addEventListener('keydown', initAudio, { once: true });
+window.addEventListener('touchstart', initAudio, { once: true });
+window.addEventListener('mousedown', initAudio, { once: true });
+// =======================================================================================
+
+let gameActive = true;
+let score = 0;
+let lives = 3;
+let fuel = 100;
+let scrollSpeed = 2;
+
+const player = {
+    x: canvas.width / 2 - 15,
+    y: canvas.height - 100,
+    w: 30,
+    h: 30,
+    speed: 4
+};
+
+const keys = { Left: false, Right: false, Up: false, Down: false, Space: false };
+
+let bullets = [];
+let enemies = [];
+let riverBanks = [];
+
+function initRiver() {
+    riverBanks = [];
+    for (let i = 0; i < canvas.height / 10 + 2; i++) {
+        riverBanks.push({
+            y: i * 10 - 10,
+            leftW: 60 + Math.sin(i * 0.5) * 20,
+            rightW: 60 - Math.sin(i * 0.5) * 20
+        });
+    }
+}
+
+function spawnEntity() {
+    if (Math.random() < 0.03) {
+        const types = ['ship', 'heli', 'fuel'];
+        const type = types[Math.floor(Math.random() * types.length)];
+
+        const minX = 80;
+        const maxX = canvas.width - 110;
+        const x = Math.random() * (maxX - minX) + minX;
+
+        enemies.push({
+            x: x,
+            y: -30,
+            w: type === 'ship' ? 35 : (type === 'heli' ? 30 : 25),
+            h: 20,
+            type: type,
+            dir: Math.random() > 0.5 ? 1 : -1,
+            speed: type === 'heli' ? 2 : 1
+        });
+    }
+}
+
+// Eventos de teclado (PC)
+window.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowLeft' || e.key === 'a') keys.Left = true;
+    if (e.key === 'ArrowRight' || e.key === 'd') keys.Right = true;
+    if (e.key === 'ArrowUp' || e.key === 'w') keys.Up = true;
+    if (e.key === 'ArrowDown' || e.key === 's') keys.Down = true;
+    if (e.key === ' ' && !keys.Space) {
+        bullets.push({ x: player.x + player.w/2 - 2, y: player.y, w: 4, h: 10 });
+        playShoot();
+        keys.Space = true;
+    }
+});
+
+window.addEventListener('keyup', (e) => {
+    if (e.key === 'ArrowLeft' || e.key === 'a') keys.Left = false;
+    if (e.key === 'ArrowRight' || e.key === 'd') keys.Right = false;
+    if (e.key === 'ArrowUp' || e.key === 'w') keys.Up = false;
+    if (e.key === 'ArrowDown' || e.key === 's') keys.Down = false;
+    if (e.key === ' ') keys.Space = false;
+});
+
+// Eventos de toque (Celular) — pointer events cobrem touch e mouse
+const setupMobileButton = (id, keyName) => {
+    const btn = document.getElementById(id);
+    const start = (e) => { e.preventDefault(); keys[keyName] = true; };
+    const end = (e) => { e.preventDefault(); keys[keyName] = false; };
+    btn.addEventListener('touchstart', start, { passive:false });
+    btn.addEventListener('touchend', end, { passive:false });
+    btn.addEventListener('touchcancel', end, { passive:false });
+};
+setupMobileButton('btn-left', 'Left');
+setupMobileButton('btn-right', 'Right');
+setupMobileButton('btn-up', 'Up');
+setupMobileButton('btn-down', 'Down');
+
+document.getElementById('btn-fire').addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    initAudio();
+    bullets.push({ x: player.x + player.w/2 - 2, y: player.y, w: 4, h: 10 });
+    playShoot();
+}, { passive:false });
+
+function checkCollision(rect1, rect2) {
+    return rect1.x < rect2.x + rect2.w &&
+           rect1.x + rect1.w > rect2.x &&
+           rect1.y < rect2.y + rect2.h &&
+           rect1.y + rect1.h > rect2.y;
+}
+
+function playerDied() {
+    playCrash();
+    lives--;
+    if (lives <= 0) {
+        gameActive = false;
+        playGameOver();
+    } else {
+        fuel = 100;
+        player.x = canvas.width / 2 - 15;
+        enemies = [];
+        bullets = [];
+    }
+}
+
+function update() {
+    if (!gameActive) return;
+
+    if (keys.Up) { scrollSpeed = 4; fuel -= 0.15; }
+    else if (keys.Down) { scrollSpeed = 1; fuel -= 0.05; }
+    else { scrollSpeed = 2.5; fuel -= 0.09; }
+
+    if (fuel <= 0) { playerDied(); return; }
+
+    updateEngineSound();
+    if (fuel <= 25) startLowFuelWarning();
+    else stopLowFuelWarning();
+
+    if (keys.Left && player.x > 0) player.x -= player.speed;
+    if (keys.Right && player.x < canvas.width - player.w) player.x += player.speed;
+
+    riverBanks.forEach(bank => {
+        bank.y += scrollSpeed;
+    });
+    if (riverBanks[0].y >= 0) {
+        const lastBank = riverBanks[riverBanks.length - 1];
+        const change = (Math.random() - 0.5) * 10;
+        let nextLeft = lastBank.leftW + change;
+        if (nextLeft < 40) nextLeft = 40;
+        if (nextLeft > 120) nextLeft = 120;
+
+        riverBanks.unshift({
+            y: riverBanks[0].y - 10,
+            leftW: nextLeft,
+            rightW: nextLeft
+        });
+        riverBanks.pop();
+    }
+
+    const currentBank = riverBanks.find(b => player.y >= b.y && player.y <= b.y + 10);
+    if (currentBank) {
+        if (player.x < currentBank.leftW || (player.x + player.w) > (canvas.width - currentBank.rightW)) {
+            playerDied();
+            return;
+        }
+    }
+
+    bullets.forEach((b, index) => {
+        b.y -= 7;
+        if (b.y < 0) bullets.splice(index, 1);
+    });
+
+    let touchingFuel = false;
+
+    enemies.forEach((e, eIdx) => {
+        e.y += scrollSpeed;
+
+        if (e.type === 'ship' || e.type === 'heli') {
+            e.x += e.speed * e.dir;
+            if (e.x < 70 || e.x > canvas.width - 100) e.dir *= -1;
+        }
+
+        bullets.forEach((b, bIdx) => {
+            if (checkCollision(b, e)) {
+                bullets.splice(bIdx, 1);
+                if (e.type !== 'fuel') score += (e.type === 'heli' ? 60 : 30);
+                enemies.splice(eIdx, 1);
+            }
+        });
+
+        if (checkCollision(player, e)) {
+            if (e.type === 'fuel') {
+                if (fuel < 100) {
+                    fuel += 0.4;
+                    touchingFuel = true;
+                }
+            } else {
+                playerDied();
+            }
+        }
+
+        if (e.y > canvas.height) enemies.splice(eIdx, 1);
+    });
+
+    if (touchingFuel) startRefuelSound();
+    else stopRefuelSound();
+
+    spawnEntity();
+}
+
+function draw() {
+    ctx.fillStyle = "#0055ff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.fillStyle = "#00aa00";
+    riverBanks.forEach(bank => {
+        ctx.fillRect(0, bank.y, bank.leftW, 11);
+        ctx.fillRect(canvas.width - bank.rightW, bank.y, bank.rightW, 11);
+    });
+
+    ctx.fillStyle = "#ffffff";
+    bullets.forEach(b => ctx.fillRect(b.x, b.y, b.w, b.h));
+
+    enemies.forEach(e => {
+        if (e.type === 'ship') {
+            ctx.fillStyle = "#ffff00";
+            ctx.fillRect(e.x, e.y, e.w, e.h);
+        } else if (e.type === 'heli') {
+            ctx.fillStyle = "#ff00ff";
+            ctx.fillRect(e.x, e.y, e.w, e.h);
+        } else if (e.type === 'fuel') {
+            ctx.save();
+            ctx.font = `${e.w + 10}px sans-serif`;
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText("⛽", e.x + e.w / 2, e.y + e.h / 2);
+            ctx.restore();
+        }
+    });
+
+    ctx.save();
+    ctx.font = `${player.w + 16}px sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.translate(player.x + player.w / 2, player.y + player.h / 2);
+    ctx.rotate(-45 * Math.PI / 180); // alinha o emoji apontando para frente (rio acima)
+    ctx.fillText("✈️", 0, 0);
+    ctx.restore();
+
+    ctx.fillStyle = "#000000";
+    ctx.fillRect(0, canvas.height - 40, canvas.width, 40);
+
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "16px Courier New";
+    ctx.fillText(`SCORE: ${score}`, 10, canvas.height - 15);
+    ctx.fillText(`LIVES: ${lives}`, canvas.width - 100, canvas.height - 15);
+
+    ctx.fillStyle = "#444";
+    ctx.fillRect(canvas.width/2 - 40, canvas.height - 25, 80, 12);
+    ctx.fillStyle = fuel > 30 ? "#00ff00" : "#ff0000";
+    ctx.fillRect(canvas.width/2 - 40, canvas.height - 25, 80 * (fuel / 100), 12);
+
+    if (!gameActive) {
+        ctx.fillStyle = "rgba(0,0,0,0.8)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#ff0000";
+        ctx.font = "30px Courier New";
+        ctx.fillText("GAME OVER", canvas.width/2 - 80, canvas.height/2);
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "14px Courier New";
+        ctx.fillText("Toque na tela ou F5 para reiniciar", canvas.width/2 - 130, canvas.height/2 + 40);
+    }
+}
+
+function gameLoop() {
+    update();
+    draw();
+    requestAnimationFrame(gameLoop);
+}
+
+canvas.addEventListener('click', () => {
+    if (!gameActive) {
+        score = 0;
+        lives = 3;
+        fuel = 100;
+        enemies = [];
+        bullets = [];
+        gameActive = true;
+        startEngineSound();
+    }
+});
+
+initRiver();
+gameLoop();
+</script>
+
+</body>
+</html>
